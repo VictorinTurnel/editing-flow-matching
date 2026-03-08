@@ -1,0 +1,8 @@
+name: rectflow
+channels:
+  - defaults
+dependencies:
+  - python=3.11
+  - ninja
+  - cuda-toolkit
+prefix: /home/victorin/miniconda3/envs/rectflow
