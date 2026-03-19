@@ -1,25 +1,34 @@
 import os
+import sys
 import torch
-import lpips
 import numpy as np
 from PIL import Image
 from torchvision import transforms
 from torchmetrics.image.fid import FrechetInceptionDistance
-import sys
+import lpips
+from absl import app, flags
 
 sys.path.append("../classifier")
-from model import TimeCondResNet18
+from classifier.model import TimeCondResNet18
 
-INPUT_DIR = "../dataset/data/"
-BASE_OUTPUT_DIR = "/home/victorin/Documents/MVA/DELIRE/flow-matching-clf-guid/results_test_linear/"
-CLASSIFIER_PATH = "../classifier/checkpoints/time_resnet18_epoch_18.pth"
+FLAGS = flags.FLAGS
+
+flags.DEFINE_string("input_dir", None, "Directory containing original real images")
+flags.DEFINE_string("base_output_dir", None, "Base directory containing edited image folders")
+flags.DEFINE_string("classifier_path", None, "Path to the classifier checkpoint")
+
+flags.mark_flags_as_required(["input_dir", "base_output_dir", "classifier_path"])
 
 ATTRIBUTE_MAPPING = {
     'eyeglasses': 0, 'male': 1, 'female': 2, 'smiling': 3, 'hat': 4,
     'mustache': 5, 'beard': 6, 'pale_skin': 7, 'blond': 8, 'attractive': 9
 }
 
-def evaluate_all_results():
+ACCURACY_THRESHOLD = 0.9 
+
+def evaluate_all_results(argv):
+    del argv  
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
     transform = transforms.Compose([
@@ -33,21 +42,23 @@ def evaluate_all_results():
         transforms.ToTensor(),
     ])
 
-    print("[INFO] Initializing models and metrics...")
+    print("[INFO] Initializing models and metrics (LPIPS, FID, Classifier)...")
     lpips_metric = lpips.LPIPS(net='alex').to(device)
     fid_metric = FrechetInceptionDistance(feature=2048).to(device)
     
     classifier = TimeCondResNet18(num_classes=10).to(device)
-    classifier.load_state_dict(torch.load(CLASSIFIER_PATH, map_location=device))
+    classifier.load_state_dict(torch.load(FLAGS.classifier_path, map_location=device))
     classifier.eval()
 
     total_images_evaluated = 0
 
-    print(f"\n{'ATTRIBUTE':<15} | {'LPIPS':<8} | {'ACCURACY':<9} | {'COUNT'}")
-    print("-" * 50)
+    print(f"\n[INFO] Starting evaluation across {len(ATTRIBUTE_MAPPING)} attributes...")
+    print("-" * 55)
+    print(f"{'ATTRIBUTE':<15} | {'LPIPS':<8} | {'ACCURACY':<9} | {'COUNT'}")
+    print("-" * 55)
 
     for attr_name, attr_idx in ATTRIBUTE_MAPPING.items():
-        attr_folder = os.path.join(BASE_OUTPUT_DIR, attr_name)
+        attr_folder = os.path.join(FLAGS.base_output_dir, attr_name)
         
         if not os.path.exists(attr_folder):
             continue
@@ -63,11 +74,10 @@ def evaluate_all_results():
             for file_name in generated_files:
                 original_name = file_name.split('_')[0] + ".jpg" 
                 path_fake = os.path.join(attr_folder, file_name)
-                path_real = os.path.join(INPUT_DIR, original_name)
+                path_real = os.path.join(FLAGS.input_dir, original_name)
 
                 if not os.path.exists(path_real):
                     print(f"[WARNING] Real image not found for {file_name}, skipping.")
-                    print(f"Expected real image path: {path_real}")
                     continue
 
                 img_fake_pil = Image.open(path_fake).convert('RGB')
@@ -81,6 +91,7 @@ def evaluate_all_results():
 
                 t_zero = torch.zeros(1, device=device)
                 logits_fake = classifier(img_fake_tensor, t_zero)
+                
                 prob_fake = torch.sigmoid(logits_fake)[0, attr_idx].item()
                 classifier_scores_fake.append(prob_fake)
 
@@ -92,19 +103,19 @@ def evaluate_all_results():
                 total_images_evaluated += 1
 
         avg_lpips = np.mean(lpips_scores)
-        success_rate = np.mean([1 if p >= 0.5 else 0 for p in classifier_scores_fake]) * 100
+        success_rate = np.mean([1 if p >= ACCURACY_THRESHOLD else 0 for p in classifier_scores_fake]) * 100
         
-        print(f"{attr_name.upper():<15} | {avg_lpips:.4f}   | {success_rate:>5.1f}%    | {len(generated_files)}")
+        print(f"{attr_name.capitalize():<15} | {avg_lpips:.4f}   | {success_rate:>5.1f}%    | {len(generated_files)}")
 
-    print("-" * 50)
-    print(f"TOTAL IMAGES: {total_images_evaluated}")
+    print("-" * 55)
+    print(f"[INFO] Evaluation finished. Total images processed: {total_images_evaluated}")
     
     if total_images_evaluated >= 50:
         print("[INFO] Computing Global FID...")
         fid_score = fid_metric.compute().item()
-        print(f"GLOBAL FID: {fid_score:.2f}")
+        print(f"       -> GLOBAL FID: {fid_score:.2f}")
     else:
-        print("GLOBAL FID: N/A (Insufficient data)")
+        print("[WARNING] Insufficient data to compute a relevant Global FID (<50 images).")
 
 if __name__ == "__main__":
-    evaluate_all_results()
+    app.run(evaluate_all_results)
