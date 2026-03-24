@@ -9,7 +9,7 @@ import lpips
 from absl import app, flags
 
 sys.path.append("../classifier")
-from classifier.model import TimeCondResNet18
+from model import TimeCondResNet18
 
 FLAGS = flags.FLAGS
 
