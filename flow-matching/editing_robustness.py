@@ -29,7 +29,7 @@ flags.DEFINE_string("eval_folder", "eval", "Folder name for storing evaluation r
 
 flags.DEFINE_string("input_dir", "../dataset/celebaHQ/images", "Directory containing input images")
 flags.DEFINE_string("output_base_dir", "./robustness", "Base directory for robustness results")
-flags.DEFINE_string("classifier_path", "../classifier/checkpoints/time_resnet18_epoch_2.pth", "Path to the classifier checkpoint")
+flags.DEFINE_string("classifier_path", "../classifier/checkpoints/time_resnet18_epoch_18.pth", "Path to the classifier checkpoint")
 flags.DEFINE_string("test_json", "test_dataset.json", "Path to the JSON file containing test data mapping")
 
 

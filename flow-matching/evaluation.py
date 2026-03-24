@@ -15,7 +15,7 @@ FLAGS = flags.FLAGS
 
 flags.DEFINE_string("input_dir", "../dataset/celebaHQ/images", "Directory containing original real images")
 flags.DEFINE_string("base_output_dir", "./results_editing_celebaHQ", "Base directory containing edited image folders")
-flags.DEFINE_string("classifier_path", "../classifier/checkpoints/time_resnet18_epoch_2.pth", "Path to the classifier checkpoint")
+flags.DEFINE_string("classifier_path", "../classifier/checkpoints/time_resnet18_epoch_18.pth", "Path to the classifier checkpoint")
 
 ATTRIBUTE_MAPPING = {
     'eyeglasses': 0, 'male': 1, 'female': 2, 'smiling': 3, 'hat': 4,

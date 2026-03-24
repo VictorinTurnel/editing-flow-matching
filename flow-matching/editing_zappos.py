@@ -30,7 +30,7 @@ flags.DEFINE_string("eval_folder", "eval", "Folder name for storing evaluation r
 
 flags.DEFINE_string("target_attribute", "High_Heels", "The attribute to add or remove")
 flags.DEFINE_float("guidance_scale", 40.0, "The scale of the classifier guidance")
-flags.DEFINE_string("classifier_path", "../classifier/checkpoints/time_resnet18_epoch_2.pth", "Path to the trained classifier weights")
+flags.DEFINE_string("classifier_path", "../classifier/checkpoints/time_resnet18_epoch_18.pth", "Path to the trained classifier weights")
 flags.DEFINE_string("lora_zappos_path", "lora_zappos_last.pth", "Path to the fine-tuned LoRA weights")
 flags.DEFINE_string("input_dir", "../dataset/zappos/images", "Directory containing the source images")
 flags.DEFINE_string("output_dir", "./results_editing_zappos", "Directory where the edited images will be saved")
