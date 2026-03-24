@@ -9,6 +9,7 @@ from torch.utils.data import DataLoader, random_split
 EPOCHS = 20
 NUM_CLASSES = 10
 DATASET = "../dataset/celebaHQ"
+SAVE_DIR = "./checkpoints"
 DATA_DIR = os.path.join(DATASET,"images")
 ATTR_FILE = os.path.join(DATASET,"list_attr_celeba_hq.txt")
 
@@ -28,6 +29,7 @@ criterion = nn.BCEWithLogitsLoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=EPOCHS)
 
+os.makedirs(SAVE_DIR, exist_ok=True)
 for epoch in range(EPOCHS):
 
     # Training
@@ -75,7 +77,8 @@ for epoch in range(EPOCHS):
     current_lr = scheduler.get_last_lr()[0]
     scheduler.step()
 
-    torch.save(model.state_dict(), f"time_resnet18_epoch_{epoch+1}.pth")
+    save_path = os.path.join(SAVE_DIR, f"time_resnet18_epoch_{epoch+1}.pth")
+    torch.save(model.state_dict(), save_path)
     print(f"Epoch {epoch+1}/{EPOCHS} - Train Loss: {average_train_loss:.4f} - Val Loss: {average_val_loss:.4f} - Val Accuracy: {val_accuracy:.4f} - LR: {current_lr:.6f}")
 
 
