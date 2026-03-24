@@ -89,7 +89,7 @@ Train a ResNet18 to recognize facial attributes at different noise levels along 
 Adapt the pre-trained face model to generate and edit shoes efficiently using parameter-efficient fine-tuning.
 
     cd ../flow-matching
-    python training_zappos.py --config ./configs/rectified_flow/celeba_hq_pytorch_rf_gaussian.py --workdir ./logs/celebahq --mode train
+    python training_zappos.py
 ---
 
 ### 2. Image Editing
@@ -102,12 +102,12 @@ The editing process consists of two mathematical steps:
 Apply a specific semantic attribute to faces using the dynamic guidance schedule.
 
     cd flow-matching
-    python editing_celeba.py --config ./configs/rectified_flow/celeba_hq_pytorch_rf_gaussian.py --workdir ./logs/celebahq --mode eval
+    python editing_celeba.py 
 
 #### Editing via Domain Transfer (Zappos):
 Apply the editing pipeline on the shifted footwear domain.
 
-    python editing_zappos.py --config ./configs/rectified_flow/celeba_hq_pytorch_rf_gaussian.py --workdir ./logs/celebahq --mode eval
+    python editing_zappos.py
     
 ---
 
@@ -116,12 +116,12 @@ Apply the editing pipeline on the shifted footwear domain.
 #### A. Quantitative Evaluation (LPIPS, FID, Accuracy)
 Measure the editing quality, structural integrity, and the actual presence of the targeted attributes across the generated dataset.
 
-    python evaluation.py --input_dir ../dataset/data/ --base_output_dir ./results/ --classifier_path ../classifier/checkpoints/time_resnet18_epoch_18.pth
+    python evaluation.py
 
 #### B. Spatial Robustness Testing
 Evaluate the limits of the editing framework by applying spatial perturbations (Zoom, Shift, Rotation) to the source images before inversion.
 
-    python editing_robustness.py --input_dir ../dataset/data/ --output_base_dir ./results/robustness --classifier_path ../classifier/checkpoints/time_resnet18_epoch_18.pth --test_json test_dataset.json
+    python editing_robustness.py
 
 
 ## 🙏 Acknowledgments
@@ -133,3 +133,4 @@ This project builds upon the original code from [Rectified Flow](https://github.
 This repository contains the project developed for the **Deep Learning for Image Restoration and Synthesis (DELIRES)** course, as part of the **Master MVA** (Mathématiques, Vision, Apprentissage) program at **ENS Paris-Saclay**.
 
 👤 **Author:** Victorin TURNEL
+
