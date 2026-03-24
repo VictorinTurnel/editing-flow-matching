@@ -12,27 +12,26 @@ from ml_collections import config_flags
 import sde_lib
 import sampling
 import datasets
-from generate_samples import restore_checkpoint_inference
 from models.ema import ExponentialMovingAverage
 from models import utils as mutils
+from models import ncsnpp, ddpm, ncsnv2
+
 
 sys.path.append("../classifier")
-from classifier.model import TimeCondResNet18
+from model import TimeCondResNet18
 
 FLAGS = flags.FLAGS
 
-config_flags.DEFINE_config_file("config", None, "Training configuration.", lock_config=True)
-flags.DEFINE_string("workdir", None, "Work directory.")
-flags.DEFINE_enum("mode", None, ["train", "eval", "reflow"], "Running mode")
-flags.DEFINE_string("eval_folder", "eval", "The folder name for storing evaluation results")
+config_flags.DEFINE_config_file("config", "./configs/rectified_flow/celeba_hq_pytorch_rf_gaussian.py", "Training configuration.", lock_config=True)
+flags.DEFINE_string("workdir", "./logs/celebahq", "Work directory.")
+flags.DEFINE_enum("mode", "train", ["train", "eval", "reflow"], "Running mode")
+flags.DEFINE_string("eval_folder", "eval", "Folder name for storing evaluation results")
 
-# --- Nouveaux flags remplaçant argparse ---
-flags.DEFINE_string("input_dir", "../dataset/data/", "Directory containing input images")
-flags.DEFINE_string("output_base_dir", "./results/robustness", "Base directory for robustness results")
-flags.DEFINE_string("classifier_path", "../classifier/checkpoints/time_resnet18_epoch_18.pth", "Path to the classifier checkpoint")
+flags.DEFINE_string("input_dir", "../dataset/celebaHQ/images", "Directory containing input images")
+flags.DEFINE_string("output_base_dir", "./robustness", "Base directory for robustness results")
+flags.DEFINE_string("classifier_path", "../classifier/checkpoints/time_resnet18_epoch_2.pth", "Path to the classifier checkpoint")
 flags.DEFINE_string("test_json", "test_dataset.json", "Path to the JSON file containing test data mapping")
 
-flags.mark_flags_as_required(["workdir", "config", "mode"])
 
 ATTRIBUTE_MAPPING = {
     'eyeglasses': 0, 'male': 1, 'female': 2, 'smiling': 3, 'hat': 4,
@@ -46,6 +45,17 @@ GUIDANCE_SCALES = {
 }
 
 TRANSFORMATIONS = ['rotate', 'shift', 'zoom']
+
+def restore_checkpoint_inference(ckpt_dir, state, device):
+    if not os.path.exists(ckpt_dir):
+        print(f"Error: No checkpoint found at {ckpt_dir}")
+        return state
+        
+    loaded_state = torch.load(ckpt_dir, map_location=device, weights_only=False)
+    state['model'].load_state_dict(loaded_state['model'], strict=False)
+    state['ema'].load_state_dict(loaded_state['ema'])
+    state['step'] = loaded_state['step']
+    return state
 
 def apply_robustness_transform(img, t_type):
     if t_type == 'rotate':
@@ -168,3 +178,4 @@ def main(argv):
 
 if __name__ == "__main__":
     app.run(main)
+

@@ -13,20 +13,27 @@ from peft import LoraConfig, get_peft_model
 import sde_lib
 import sampling
 import datasets
-from generate_samples import restore_checkpoint_inference
 from models.ema import ExponentialMovingAverage
 from models import utils as mutils
+from models import ncsnpp, ddpm, ncsnv2
+
 
 sys.path.append("../classifier")
-from classifier.model import TimeCondResNet18
+from model import TimeCondResNet18
 
 FLAGS = flags.FLAGS
 
-config_flags.DEFINE_config_file("config", None, "Training configuration.", lock_config=True)
-flags.DEFINE_string("workdir", None, "Work directory.")
-flags.DEFINE_enum("mode", None, ["train", "eval", "reflow"], "Running mode")
+config_flags.DEFINE_config_file("config", "./configs/rectified_flow/celeba_hq_pytorch_rf_gaussian.py", "Training configuration.", lock_config=True)
+flags.DEFINE_string("workdir", "./logs/celebahq", "Work directory.")
+flags.DEFINE_enum("mode", "eval", ["train", "eval", "reflow"], "Running mode")
 flags.DEFINE_string("eval_folder", "eval", "Folder name for storing evaluation results")
-flags.mark_flags_as_required(["workdir", "config", "mode"])
+
+flags.DEFINE_string("target_attribute", "High_Heels", "The attribute to add or remove")
+flags.DEFINE_float("guidance_scale", 40.0, "The scale of the classifier guidance")
+flags.DEFINE_string("classifier_path", "../classifier/checkpoints/time_resnet18_epoch_2.pth", "Path to the trained classifier weights")
+flags.DEFINE_string("lora_zappos_path", "lora_zappos_last.pth", "Path to the fine-tuned LoRA weights")
+flags.DEFINE_string("input_dir", "../dataset/zappos/images", "Directory containing the source images")
+flags.DEFINE_string("output_dir", "./results_editing_zappos", "Directory where the edited images will be saved")
 
 ATTRIBUTE_MAPPING = {
     'Boots': 0, 'Sandals': 1, 'Sneakers': 2, 'High_Heels': 3,
@@ -34,21 +41,23 @@ ATTRIBUTE_MAPPING = {
     'Men': 8, 'Women': 9
 }
 
-TARGET_ATTRIBUTE = 'High_Heels' 
-GUIDANCE_SCALE = 40.0
-
-CLASSIFIER_PATH = "../classifier/checkpoints/time_resnet18_epoch_18.pth"
-LORA_ZAPPOS_PATH = "lora_zappos_last.pth" 
-
-
-INPUT_DIR = "/path/to/dataset/zappos/images"
-OUTPUT_DIR = "/path/to/results"
-
 IMAGE_NAMES = [
     "100627-255.jpg", "101026-3.jpg", "101093-342648.jpg", "101404-231.jpg", 
     "104730-35.jpg", "104733-1647.jpg", "105214-6.jpg", "107219-152359.jpg", 
     "107999-585.jpg", "115220-151.jpg"
 ]
+
+def restore_checkpoint_inference(ckpt_dir, state, device):
+    if not os.path.exists(ckpt_dir):
+        print(f"Error: No checkpoint found at {ckpt_dir}")
+        return state
+        
+    print(f"Loading official weights from {ckpt_dir}...")
+    loaded_state = torch.load(ckpt_dir, map_location=device, weights_only=False)
+    state['model'].load_state_dict(loaded_state['model'], strict=False)
+    state['ema'].load_state_dict(loaded_state['ema'])
+    state['step'] = loaded_state['step']
+    return state
 
 def edit_samples(config, workdir):
     config.eval.batch_size = 5 
@@ -61,7 +70,7 @@ def edit_samples(config, workdir):
         transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
     ])
     
-    target_out_dir = os.path.join(OUTPUT_DIR, TARGET_ATTRIBUTE)
+    target_out_dir = os.path.join(FLAGS.output_dir, FLAGS.target_attribute)
     os.makedirs(target_out_dir, exist_ok=True)
 
     print("[INFO] Initializing generator model...")
@@ -83,15 +92,15 @@ def edit_samples(config, workdir):
     )
     score_model = get_peft_model(score_model, lora_config)
     score_model.to(device)
-    score_model.load_state_dict(torch.load(LORA_ZAPPOS_PATH, map_location=device))
+    score_model.load_state_dict(torch.load(FLAGS.lora_zappos_path, map_location=device))
     score_model.eval()
 
     print("[INFO] Initializing classifier...")
     classifier = TimeCondResNet18(num_classes=10).to(device)
-    classifier.load_state_dict(torch.load(CLASSIFIER_PATH, map_location=device))
+    classifier.load_state_dict(torch.load(FLAGS.classifier_path, map_location=device))
     classifier.eval()
 
-    target_idx = ATTRIBUTE_MAPPING[TARGET_ATTRIBUTE]
+    target_idx = ATTRIBUTE_MAPPING[FLAGS.target_attribute]
 
     sde = sde_lib.RectifiedFlow(
         init_type=config.sampling.init_type, 
@@ -110,7 +119,7 @@ def edit_samples(config, workdir):
         valid_names = []
         
         for img_name in batch_names:
-            img_path = os.path.join(INPUT_DIR, img_name)
+            img_path = os.path.join(FLAGS.input_dir, img_name)
             if not os.path.exists(img_path):
                 continue
                 
@@ -132,7 +141,7 @@ def edit_samples(config, workdir):
             config, sde, current_shape, inverse_scaler, eps=1e-3,
             classifier=classifier, 
             target_attr_idx=target_idx, 
-            guidance_scale=GUIDANCE_SCALE
+            guidance_scale=FLAGS.guidance_scale
         )
 
         print("       -> Inverting batch to latent space...")
@@ -152,12 +161,12 @@ def edit_samples(config, workdir):
 
             axes[1].imshow(edited_batch_np[b_idx])
             axes[1].axis('off')
-            axes[1].set_title(f"Edited: + {TARGET_ATTRIBUTE.replace('_', ' ')}")
+            axes[1].set_title(f"Edited: + {FLAGS.classifier_path.replace('_', ' ')}")
 
             plt.tight_layout()
             
             save_path = os.path.join(target_out_dir, img_name)
-            final_save_path = save_path.replace(".jpg", "") + "_" + TARGET_ATTRIBUTE + ".jpg"
+            final_save_path = save_path.replace(".jpg", "") + "_" + FLAGS.classifier_path + ".jpg"
             
             os.makedirs(os.path.dirname(final_save_path), exist_ok=True)
             plt.savefig(final_save_path, bbox_inches='tight')
