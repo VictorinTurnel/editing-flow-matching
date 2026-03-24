@@ -8,8 +8,8 @@ from torch.utils.data import DataLoader, random_split
 
 EPOCHS = 20
 NUM_CLASSES = 10
-DATASET = "../dataset"
-DATA_DIR = os.path.join(DATASET,"data")
+DATASET = "../dataset/celebaHQ"
+DATA_DIR = os.path.join(DATASET,"images")
 ATTR_FILE = os.path.join(DATASET,"list_attr_celeba_hq.txt")
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
