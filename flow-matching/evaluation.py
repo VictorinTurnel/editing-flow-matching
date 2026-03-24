@@ -13,11 +13,9 @@ from model import TimeCondResNet18
 
 FLAGS = flags.FLAGS
 
-flags.DEFINE_string("input_dir", None, "Directory containing original real images")
-flags.DEFINE_string("base_output_dir", None, "Base directory containing edited image folders")
-flags.DEFINE_string("classifier_path", None, "Path to the classifier checkpoint")
-
-flags.mark_flags_as_required(["input_dir", "base_output_dir", "classifier_path"])
+flags.DEFINE_string("input_dir", "../dataset/celebaHQ/images", "Directory containing original real images")
+flags.DEFINE_string("base_output_dir", "./results_editing_celebaHQ", "Base directory containing edited image folders")
+flags.DEFINE_string("classifier_path", "../classifier/checkpoints/time_resnet18_epoch_2.pth", "Path to the classifier checkpoint")
 
 ATTRIBUTE_MAPPING = {
     'eyeglasses': 0, 'male': 1, 'female': 2, 'smiling': 3, 'hat': 4,
@@ -119,3 +117,4 @@ def evaluate_all_results(argv):
 
 if __name__ == "__main__":
     app.run(evaluate_all_results)
+
